@@ -1,0 +1,22 @@
+#!/bin/bash
+currentdir=`pwd`
+rpm -q git > /dev/null
+if [ $? -eq 0 ]; then
+	echo "Git is already installed."
+else
+	sudo yum -y install git
+fi
+
+if [ -d ".git" ]; then
+	echo "The .git folder already exists"
+else
+	git init
+fi
+if [[ `crontab -l` == *"$currentdir"*"GITJOB"* ]]; then
+	echo "A cron Git task containing $currentdir already exists"
+else
+	crontab -l > tmpfile
+	echo "*/10 * * * * cd $currentdir; git add --all;git commit -m 'Cron Commit GITJOB'" >> tmpfile
+	crontab tmpfile
+	rm tmpfile
+fi
