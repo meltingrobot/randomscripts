@@ -1,6 +1,6 @@
 #!/bin/bash
 CURRENT=`uname -r|sed 's/-generic//'`
-LATEST=`dpkg -l | tail -n +6 | grep -E 'linux-image-[0-9]+' | grep -Fv $(uname -r) | tail -n 1 | tr -s ' ' | cut -d ' ' -f 2 | cut -d '-' -f 3-4`
-kernels=`dpkg -l | tail -n +6 | grep -E 'linux-[a-z]+-[0-9]+' | grep -Fv ${CURRENT} | grep -Fv ${LATEST} | head -n -1 | tr -s ' ' | cut -d ' ' -f 2`
+LATEST=`dpkg -l | grep -E 'linux-image-[0-9]+' | grep -Fv $(uname -r) | tail -n 1 | tr -s ' ' | cut -d ' ' -f 2 | cut -d '-' -f 3-4`
+kernels=`dpkg -l | grep -E 'linux-[a-z]+-[0-9]+|linux-[a-z]+-[a-z]+-[0-9]+' | grep -Fv ${CURRENT} | grep -Fv ${LATEST} | tr -s ' ' | cut -d ' ' -f 2`
 sudo apt-get -y purge ${kernels}
 sudo apt autoremove --purge -y
