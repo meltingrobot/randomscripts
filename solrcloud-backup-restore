@@ -1,0 +1,62 @@
+#!/bin/bash
+DATE=`date +%m-%d-%Y`
+YESTERDATE=`date +%m-%d-%Y --date="1 days ago"`
+unset ACTION COLLECTION BACKUP_PATH DELETE_PREVIOUS
+
+while getopts "src:p:drh" opt; do
+  case ${opt} in
+    s ) ACTION="SAVE" ;;
+    r ) ACTION="RESTORE" ;;
+    c ) COLLECTION=${OPTARG} ;;
+    p ) BACKUP_PATH=${OPTARG} ;;
+    d ) DELETE_PREVIOUS="YES" ;;
+    h )
+      echo "Usage:"
+      echo "    solrcollection_backup -h                      Display this help message."
+      echo "    BACKUP Example: solrcloud-backup-restore -s -c COLLECTION -p PATHTOBACKUPLOCATION -d (Optional, deletes backup from previous day)"
+      echo "    RESTORE Example: solrcloud-backup-restore -r -c COLLECTION -p PATHTOBACKUPLOCATION"
+      exit 0
+      ;;
+    * )
+      echo "Incorrect options provided, use -h to see valid examples."
+      exit 1
+      ;;
+  esac
+done
+
+if ((OPTIND == 1))
+then
+  echo "No options specified"
+  exit 1
+fi
+
+#Clean old job from async queue
+curl -s 'http://localhost:8983/solr/admin/collections?action=DELETESTATUS&requestid=1000&wt=json'
+
+case $ACTION in
+  SAVE )
+       if [ -n "${DELETE_PREVIOUS}" ]; then
+         if [ -d "${BACKUP_PATH}/${COLLECTION}-${YESTERDATE}" ]; then
+           echo "Cleaning up previous day backup..."
+           rm -rf ${BACKUP_PATH}/${COLLECTION}-${YESTERDATE}
+         fi
+       fi
+       #Don't run if the backup directory already exists as that indicates it already ran today
+       if [ -d "${BACKUP_PATH}/${COLLECTION}-${DATE}" ]; then
+         echo "Backup has already ran today!"
+         exit 1
+       fi
+       #Run backup
+       curl -s "http://localhost:8983/solr/admin/collections?action=BACKUP&name=${COLLECTION}-${DATE}&collection=${COLLECTION}&location=${BACKUP_PATH}&async=1000"
+       echo "Run this curl to check progress of backup: curl -s 'http://localhost:8983/solr/admin/collections?action=REQUESTSTATUS&requestid=1000&wt=json'"
+       exit 0
+       ;;
+  RESTORE )
+       #Delete the old collection first
+       curl -s "http://localhost:8983/solr/admin/collections?action=DELETE&name=${COLLECTION}"
+       #Restore collection from latest dump
+       curl -s "http://localhost:8983/solr/admin/collections?action=RESTORE&name=${COLLECTION}-${DATE}&collection=${COLLECTION}&location=${BACKUP_PATH}&replicationFactor=1&async=1000"
+       echo "Run this curl to check progress of restore: curl -s 'http://localhost:8983/solr/admin/collections?action=REQUESTSTATUS&requestid=1000&wt=json'"
+       exit 0
+       ;;
+esac
